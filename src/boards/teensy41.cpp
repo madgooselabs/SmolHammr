@@ -48,5 +48,5 @@ void GCC_delay3ms()
 
 uint8_t getAnalogMode()
 {
-	return (digitalRead(35) & digitalRead(36) << 1 & digitalRead(37) << 2);
+	return (digitalRead(33) & digitalRead(34) << 1 & digitalRead(35) << 2);
 }

@@ -10,6 +10,19 @@
 #include "joysticks/JLM.hpp"
 #include "joysticks/U360.hpp"
 
+// Error suppression
+#ifndef PIN_ANALOG_X
+#define PIN_ANALOG_X       NULL
+#endif
+
+#ifndef PIN_ANALOG_Y
+#define PIN_ANALOG_Y       NULL
+#endif
+
+#ifndef PIN_ANALOG_BUTTON
+#define PIN_ANALOG_BUTTON  NULL
+#endif
+
 // Output mode
 typedef enum { USB, GCN, DBG } MODE;
 MODE outputMode;
@@ -134,6 +147,7 @@ void loop()
     {
       GCC_byte1 &= (~GCC_DPAD_UP & ~GCC_DPAD_DOWN & ~GCC_DPAD_LEFT & ~GCC_DPAD_RIGHT); // Nulls the Dpad
       
+      // Cleaning SOCD
       if ((READ_DPAD_LEFT) && (!(READ_DPAD_RIGHT))) GCC_byte2 = 0;
       else if ((!(READ_DPAD_LEFT)) && (READ_DPAD_RIGHT)) GCC_byte2 = 255;
       else GCC_byte2 = 127;
@@ -154,8 +168,8 @@ void loop()
       else GCC_byte1 ^= (GCC_DPAD_LEFT & GCC_DPAD_RIGHT);
   
       // Byte 2 and 3
-      //GCC_byte2 = SPI_readValue(SSPIN);
-      //GCC_byte3 = SPI_readValue(SSPIN);
+      GCC_byte2 = (uint8_t)map(analog.x, 0, 1023, 0, 255);
+      GCC_byte3 = (uint8_t)map(analog.y, 0, 1023, 0, 255);
     }
 
     // Byte 4
