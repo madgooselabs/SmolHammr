@@ -3,25 +3,37 @@
  *    "GCC" heretofore refers to "GameCube Controller", not "GNU C Compiler" !!
  */
 
+#pragma message "Compiling main file !"
+
+// GC header
 #include "GCC.hpp"
+
+// USB header
+#include "tinyusb/src/tusb.h"
 
 // Analog headers
 #include "joysticks/analog.hpp"
 #include "joysticks/JLM.hpp"
 #include "joysticks/U360.hpp"
+#include "joysticks/thumbstick.hpp"
 
 // Error suppression
 #ifndef PIN_ANALOG_X
-#define PIN_ANALOG_X       NULL
+#define PIN_ANALOG_X      NULL
 #endif
 
 #ifndef PIN_ANALOG_Y
-#define PIN_ANALOG_Y       NULL
+#define PIN_ANALOG_Y      NULL
 #endif
 
-#ifndef PIN_ANALOG_BUTTON
-#define PIN_ANALOG_BUTTON  NULL
+#ifndef PIN_ANALOG_BTN
+#define PIN_ANALOG_BTN    NULL
 #endif
+
+//#define DEBUG_SERIAL      1
+
+char buf[1024];
+bool pollAnalog;
 
 // Output mode
 typedef enum { USB, GCN, DBG } MODE;
@@ -34,17 +46,25 @@ analogInput analog;
 
 void setup()
 {
+  pollAnalog = true;
+
   // Set up GC Data pins
   pinMode(GCC_DATA_OUT, OUTPUT);
   pinMode(GCC_DATA_IN, INPUT_PULLUP);
 
   GCC_setup();
 
-  Serial.begin(9600);
-  Serial.println("SmolHammr ready !");
+  #ifdef DEBUG_SERIAL
+    Serial.begin(9600);
+    delay(5000);
+    Serial.println("SmolHammr ready !");
+  #endif
 
   // Host mode detection
-  Serial.print("Detecting host mode... ");
+  #ifdef DEBUG_SERIAL
+    Serial.print("Detecting host mode... ");
+  #endif
+
   outputMode = USB;
   uint16_t counter = millis();
   uint16_t counter2 = counter;
@@ -64,34 +84,67 @@ void setup()
     counter2++;
   }
 
-  if (outputMode == USB)
-    Serial.println("Output mode has been set to USB");
-  else if (outputMode == GCN)
-    Serial.println("Output mode has been set to GCN");
-  else if (outputMode == DBG)
-    Serial.println("Output mode has been set to DEBUG");
+  #ifdef DEBUG_SERIAL
+    if (outputMode == USB)
+      Serial.println("Output mode has been set to USB");
+    else if (outputMode == GCN)
+      Serial.println("Output mode has been set to GCN");
+    else if (outputMode == DBG)
+      Serial.println("Output mode has been set to DEBUG");
+  #endif
 
   // Get analog mode
   analogMode = (ANALOG_MODE)getAnalogMode();
-  if (analogMode == LEVER_JLM) analog = JLM();
-  else if (analogMode == LEVER_ULTRASTIK) analog = U360();
-  //else if (analogMode == LEVER_THUMBSTICK) analog = Thumbstick();
 
-  analog.begin(ANALOG_SAMPLES_PER_CYCLE, PIN_ANALOG_X, PIN_ANALOG_Y, 5, 10, PIN_ANALOG_BUTTON);
+  switch (analogMode)
+  {
+    case LEVER_JLM:
+      analog.init("Sanwa JLM", ANALOG_SAMPLES_PER_CYCLE, PIN_ANALOG_X, PIN_ANALOG_Y, PIN_ANALOG_BTN, ANALOG_DEADZONE, ANALOG_REVERSE_DEADZONE, JLM_XDELTA_POSITIVE, JLM_XDELTA_NEGATIVE, JLM_YDELTA_POSITIVE, JLM_YDELTA_NEGATIVE);
+      break;
+    case LEVER_ULTRASTIK:
+      analog.init("Ultrastik 360", ANALOG_SAMPLES_PER_CYCLE, PIN_ANALOG_X, PIN_ANALOG_Y, PIN_ANALOG_BTN, ANALOG_DEADZONE, ANALOG_REVERSE_DEADZONE, U360_XDELTA_POSITIVE, U360_XDELTA_NEGATIVE, U360_YDELTA_POSITIVE, U360_YDELTA_NEGATIVE);
+      break;
+    case LEVER_THUMBSTICK:
+      analog.init("Generic thumbstick", ANALOG_SAMPLES_PER_CYCLE, PIN_ANALOG_X, PIN_ANALOG_Y, PIN_ANALOG_BTN, ANALOG_DEADZONE, ANALOG_REVERSE_DEADZONE, THUMBSTICK_XDELTA_POSITIVE, THUMBSTICK_XDELTA_NEGATIVE, THUMBSTICK_YDELTA_POSITIVE, THUMBSTICK_YDELTA_NEGATIVE);
+      break;
+    case LEVER_D2A:
+      analog.init("Digital to Analog", ANALOG_SAMPLES_PER_CYCLE, PIN_ANALOG_X, PIN_ANALOG_Y, PIN_ANALOG_BTN, ANALOG_DEADZONE, ANALOG_REVERSE_DEADZONE, 0, 0, 0, 0);
+      pollAnalog = false;
+      break;
+  }
+
+  #ifdef DEBUG_SERIAL
+    Serial.println();
+    analog.getLeverInfo(buf);
+    Serial.println(buf);
+    Serial.println();
+  #endif
 
   if ((outputMode == DBG) || (outputMode == GCN))
   {
     GCC_setup();
   }
+  else if (outputMode == USB)
+  {
+    tusb_init();
+  }
 }
 
 void loop()
 {
-  analog.sample();
+  if (pollAnalog)
+    analog.sample((int)outputMode);
+
+  #ifdef DEBUG_SERIAL
+    sprintf(buf, "\r                                 ");
+    Serial.println(buf);
+    sprintf(buf, "\rX:\t%d|Y:\t%d", analog.x, analog.y);
+    Serial.println(buf);
+  #endif
 
   if (outputMode == USB)
   {
-    // TODO
+    tud_task();
   }
   else if (outputMode == GCN)
   {
@@ -168,8 +221,8 @@ void loop()
       else GCC_byte1 ^= (GCC_DPAD_LEFT & GCC_DPAD_RIGHT);
   
       // Byte 2 and 3
-      GCC_byte2 = (uint8_t)map(analog.x, 0, 1023, 0, 255);
-      GCC_byte3 = (uint8_t)map(analog.y, 0, 1023, 0, 255);
+      GCC_byte2 = analog.x;
+      GCC_byte3 = analog.y;
     }
 
     // Byte 4

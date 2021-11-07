@@ -1,4 +1,4 @@
-#include "teensy41.hpp"
+#include "boards/teensy41.hpp"
 
 void GCC_setup()
 {

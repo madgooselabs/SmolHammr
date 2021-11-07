@@ -1,0 +1,10 @@
+#ifndef U360_HPP
+#define U360_HPP
+#pragma once
+
+#define U360_XDELTA_POSITIVE			200
+#define U360_XDELTA_NEGATIVE			200
+#define U360_YDELTA_POSITIVE			200
+#define U360_YDELTA_NEGATIVE			200
+
+#endif

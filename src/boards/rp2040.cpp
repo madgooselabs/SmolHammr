@@ -1,4 +1,4 @@
-#include "rp2040.hpp"
+#include "boards/rp2040.hpp"
 
 void GCC_setup()
 {
